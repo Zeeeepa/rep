@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repeater Panel</title>
+    <link rel="stylesheet" href="panel.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Left Sidebar: Request List -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <input type="text" id="search-bar" placeholder="Filter requests...">
+                <div class="filters">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="GET">GET</button>
+                    <button class="filter-btn" data-filter="POST">POST</button>
+                    <button class="filter-btn" data-filter="PUT">PUT</button>
+                    <button class="filter-btn" data-filter="DELETE">DELETE</button>
+                    <button class="filter-btn" data-filter="starred" title="Show Starred">★</button>
+                </div>
+            </div>
+            <div id="request-list" class="request-list">
+                <!-- Requests will be populated here -->
+                <div class="empty-state">Listening for requests...</div>
+            </div>
+        </div>
+
+        <!-- Sidebar Resize Handle -->
+        <div class="resize-handle sidebar-resize-handle"></div>
+
+        <!-- Main Content: Split View -->
+        <div class="main-content">
+            <!-- Request Editor (Top/Left) -->
+            <div class="pane request-pane">
+                <div class="pane-header">
+                    <h3>Request</h3>
+                    <div class="header-actions">
+                        <div class="history-nav">
+                            <button id="history-back" class="icon-btn" title="Previous request" disabled>
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"
+                                        fill="currentColor" />
+                                </svg>
+                            </button>
+                            <button id="history-fwd" class="icon-btn" title="Next request" disabled>
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"
+                                        fill="currentColor" />
+                                </svg>
+                            </button>
+                        </div>
+                        <label class="https-toggle">
+                            <input type="checkbox" id="use-https" checked>
+                            <span>HTTPS</span>
+                        </label>
+                        <button id="copy-req-btn" class="icon-btn" title="Copy Request">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path
+                                    d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                                    fill="currentColor" />
+                            </svg>
+                        </button>
+                        <button id="send-btn" class="primary-btn">Send</button>
+                    </div>
+                </div>
+                <div class="pane-body">
+                    <div class="editor-container">
+                        <div id="raw-request-input" contenteditable="true" class="editor" spellcheck="false"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resize Handle -->
+            <div class="resize-handle pane-resize-handle"></div>
+
+            <!-- Response Viewer (Bottom/Right) -->
+            <div class="pane response-pane">
+                <div class="pane-header">
+                    <h3>Response</h3>
+                    <div class="header-actions">
+                        <div class="header-badges">
+                            <span id="res-status" class="status-badge"></span>
+                            <span id="res-time" class="time-badge"></span>
+                        </div>
+                        <button id="copy-res-btn" class="icon-btn" title="Copy Response">
+                            <svg viewBox="0 0 24 24" width="16" height="16">
+                                <path
+                                    d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"
+                                    fill="currentColor" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="pane-body">
+                    <div class="editor-container">
+                        <pre id="raw-response-display"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="syntax-highlight.js"></script>
+    <script src="panel.js"></script>
+</body>
+
+</html>
