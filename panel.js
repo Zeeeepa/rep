@@ -1994,3 +1994,496 @@ function importRequests(file) {
     };
     reader.readAsText(file);
 }
+
+// Bulk Replay Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const bulkReplayBtn = document.getElementById('bulk-replay-btn');
+    const bulkConfigModal = document.getElementById('bulk-config-modal');
+    const closeModalBtn = document.querySelector('.close-modal');
+    const payloadTypeSelect = document.getElementById('payload-type');
+    const startAttackBtn = document.getElementById('start-attack-btn');
+    const bulkReplayPane = document.getElementById('bulk-replay-pane');
+    const bulkResultsTable = document.getElementById('bulk-results-table').querySelector('tbody');
+    const bulkProgressBar = document.getElementById('bulk-progress-bar');
+    const bulkProgressText = document.getElementById('bulk-progress-text');
+    const bulkStopBtn = document.getElementById('bulk-stop-btn');
+    const bulkCloseBtn = document.getElementById('bulk-close-btn');
+    const verticalResizeHandle = document.querySelector('.vertical-resize-handle');
+    const rawRequestInput = document.getElementById('raw-request-input');
+
+    let shouldStopBulk = false;
+
+    // Helper to check for payload markers
+    function checkPayloadMarkers() {
+        if (!bulkReplayBtn) return;
+
+        const content = rawRequestInput.innerText;
+        const hasMarkers = /§[\s\S]*?§/.test(content);
+
+        if (hasMarkers) {
+            bulkReplayBtn.disabled = false;
+            bulkReplayBtn.classList.add('ready');
+            bulkReplayBtn.title = "Start Attack (Payloads detected)";
+        } else {
+            bulkReplayBtn.disabled = true;
+            bulkReplayBtn.classList.remove('ready');
+            bulkReplayBtn.title = "Mark payloads with § to enable Bulk Replay";
+        }
+    }
+
+    // Initial check
+    checkPayloadMarkers();
+
+    // Listen for changes in input
+    if (rawRequestInput) {
+        rawRequestInput.addEventListener('input', checkPayloadMarkers);
+        // Also check on keyup/click to be sure (e.g. after context menu insert)
+        rawRequestInput.addEventListener('keyup', checkPayloadMarkers);
+        rawRequestInput.addEventListener('click', checkPayloadMarkers);
+
+        // Observe DOM changes for context menu insertions
+        const observer = new MutationObserver(checkPayloadMarkers);
+        observer.observe(rawRequestInput, { childList: true, subtree: true, characterData: true });
+    }
+
+    // State for payload configurations
+    let payloadConfigs = {};
+    let currentConfigIndex = 0;
+
+    // Bulk Replay Button
+    if (bulkReplayBtn) {
+        bulkReplayBtn.addEventListener('click', () => {
+            if (bulkReplayBtn.disabled) return;
+
+            // Find payload positions
+            const content = rawRequestInput.innerText;
+            const matches = content.match(/§[\s\S]*?§/g);
+            const count = matches ? matches.length : 0;
+            document.getElementById('payload-count').textContent = count;
+
+            // Reset Configs
+            payloadConfigs = {};
+            currentConfigIndex = 0;
+
+            // Populate Position Select
+            const positionSelect = document.getElementById('payload-position-select');
+            positionSelect.innerHTML = '';
+
+            if (matches) {
+                matches.forEach((match, index) => {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    // Show a snippet of the value
+                    const cleanValue = match.replace(/§/g, '');
+                    option.textContent = `Position ${index + 1} (${cleanValue.substring(0, 20)}${cleanValue.length > 20 ? '...' : ''})`;
+                    positionSelect.appendChild(option);
+
+                    // Initialize default config
+                    payloadConfigs[index] = {
+                        type: 'simple-list',
+                        list: '',
+                        numbers: { from: 1, to: 10, step: 1 }
+                    };
+                });
+            }
+
+            // Load initial state (Index 0)
+            loadPayloadConfig(0);
+
+            bulkConfigModal.style.display = 'block';
+        });
+    }
+
+    // Position Select Change
+    const positionSelect = document.getElementById('payload-position-select');
+    if (positionSelect) {
+        positionSelect.addEventListener('focus', () => {
+            // Store previous index before change
+            positionSelect.dataset.prevIndex = positionSelect.value;
+        });
+
+        positionSelect.addEventListener('change', (e) => {
+            const newIndex = parseInt(e.target.value);
+            const prevIndex = parseInt(positionSelect.dataset.prevIndex || 0);
+
+            // Save config for previous index
+            savePayloadConfig(prevIndex);
+
+            // Load config for new index
+            loadPayloadConfig(newIndex);
+
+            currentConfigIndex = newIndex;
+            positionSelect.dataset.prevIndex = newIndex;
+        });
+    }
+
+    function savePayloadConfig(index) {
+        if (!payloadConfigs[index]) payloadConfigs[index] = {};
+
+        payloadConfigs[index].type = payloadTypeSelect.value;
+        payloadConfigs[index].list = document.getElementById('payload-list').value;
+        payloadConfigs[index].numbers = {
+            from: document.getElementById('num-from').value,
+            to: document.getElementById('num-to').value,
+            step: document.getElementById('num-step').value
+        };
+    }
+
+    function loadPayloadConfig(index) {
+        const config = payloadConfigs[index];
+        if (!config) return;
+
+        // Set Type
+        payloadTypeSelect.value = config.type;
+        payloadTypeSelect.dispatchEvent(new Event('change')); // Trigger UI update
+
+        // Set Values
+        document.getElementById('payload-list').value = config.list || '';
+        if (config.numbers) {
+            document.getElementById('num-from').value = config.numbers.from || 1;
+            document.getElementById('num-to').value = config.numbers.to || 10;
+            document.getElementById('num-step').value = config.numbers.step || 1;
+        }
+    }
+
+    // Close Modal
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            bulkConfigModal.style.display = 'none';
+        });
+    }
+
+    window.addEventListener('click', (e) => {
+        if (e.target === bulkConfigModal) {
+            bulkConfigModal.style.display = 'none';
+        }
+    });
+
+    // Payload Type Toggle
+    if (payloadTypeSelect) {
+        payloadTypeSelect.addEventListener('change', (e) => {
+            document.querySelectorAll('.payload-options').forEach(el => el.style.display = 'none');
+            if (e.target.value === 'simple-list') {
+                document.getElementById('options-simple-list').style.display = 'block';
+            } else if (e.target.value === 'numbers') {
+                document.getElementById('options-numbers').style.display = 'block';
+            }
+        });
+    }
+
+    // Start Attack
+    if (startAttackBtn) {
+        startAttackBtn.addEventListener('click', () => {
+            // Save current config before starting
+            savePayloadConfig(currentConfigIndex);
+
+            bulkConfigModal.style.display = 'none';
+            startBulkReplay();
+        });
+    }
+
+    // Stop Attack
+    if (bulkStopBtn) {
+        bulkStopBtn.addEventListener('click', () => {
+            shouldStopBulk = true;
+        });
+    }
+
+    // Close Results Pane
+    if (bulkCloseBtn) {
+        bulkCloseBtn.addEventListener('click', () => {
+            bulkReplayPane.style.display = 'none';
+            verticalResizeHandle.style.display = 'none';
+        });
+    }
+
+    // Vertical Resize Handle
+    let isVerticalResizing = false;
+    if (verticalResizeHandle) {
+        verticalResizeHandle.addEventListener('mousedown', (e) => {
+            isVerticalResizing = true;
+            document.body.style.cursor = 'row-resize';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isVerticalResizing) return;
+            const containerHeight = document.querySelector('.main-content').offsetHeight;
+            const newHeight = containerHeight - e.clientY; // Calculate from bottom
+            if (newHeight > 100 && newHeight < containerHeight - 100) {
+                bulkReplayPane.style.height = `${newHeight}px`;
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isVerticalResizing = false;
+            document.body.style.cursor = 'default';
+        });
+    }
+
+    // Context Menu: Mark Payload
+    const contextMenu = document.getElementById('context-menu');
+    const markPayloadItem = contextMenu.querySelector('[data-action="mark-payload"]');
+    if (markPayloadItem) {
+        markPayloadItem.addEventListener('click', () => {
+            const selection = window.getSelection();
+            if (!selection.rangeCount) return;
+
+            const range = selection.getRangeAt(0);
+            const selectedText = range.toString();
+
+            if (selectedText) {
+                // Wrap in §
+                document.execCommand('insertText', false, `§${selectedText}§`);
+            } else {
+                // Insert empty markers
+                document.execCommand('insertText', false, '§§');
+            }
+            contextMenu.classList.remove('show');
+        });
+    }
+
+    async function startBulkReplay() {
+        const targetIndex = parseInt(document.getElementById('payload-position-select').value);
+        const config = payloadConfigs[targetIndex]; // Use stored config
+
+        if (!config) {
+            alert('Configuration error.');
+            return;
+        }
+
+        const type = config.type;
+        let payloads = [];
+
+        // Generate Payloads
+        if (type === 'simple-list') {
+            const text = config.list;
+            payloads = text.split('\n').filter(line => line.trim() !== '');
+        } else if (type === 'numbers') {
+            const from = parseInt(config.numbers.from);
+            const to = parseInt(config.numbers.to);
+            const step = parseInt(config.numbers.step);
+            for (let i = from; i <= to; i += step) {
+                payloads.push(i.toString());
+            }
+        }
+
+        if (payloads.length === 0) {
+            alert('No payloads generated.');
+            return;
+        }
+
+        // Show Pane
+        bulkReplayPane.style.display = 'flex';
+        verticalResizeHandle.style.display = 'block';
+        bulkResultsTable.innerHTML = '';
+        shouldStopBulk = false;
+
+        // Store results for viewing
+        const bulkResults = [];
+
+        // Prepare Request Template
+        // Use innerText to get newlines, but be careful with how browsers handle it.
+        const template = rawRequestInput.innerText;
+        const useHttps = document.getElementById('use-https').checked;
+        const scheme = useHttps ? 'https' : 'http';
+
+        let completed = 0;
+        const total = payloads.length;
+
+        for (let i = 0; i < total; i++) {
+            if (shouldStopBulk) break;
+
+            const payload = payloads[i];
+
+            // Construct Request Content
+            // We need to replace markers intelligently.
+            // 1. Split by markers to preserve structure? Or use a replacer function?
+            // A global replace with a counter is safest to handle identical values.
+
+            let matchCount = 0;
+            console.log(`[Bulk] Processing payload ${i}, Target Index: ${targetIndex}`);
+
+            // Use [\s\S] to match newlines as well
+            const requestContent = template.replace(/§[\s\S]*?§/g, (match) => {
+                const currentIndex = matchCount++;
+                console.log(`[Bulk] Found match: ${match}, Index: ${currentIndex}, Target: ${targetIndex}`);
+
+                if (currentIndex === targetIndex) {
+                    // This is the target: replace with payload
+                    return payload;
+                } else {
+                    // Not the target: strip markers, keep original value
+                    return match.replace(/§/g, '');
+                }
+            });
+
+            // Create row
+            const row = document.createElement('tr');
+            row.dataset.index = i;
+            row.innerHTML = `
+                <td>${i + 1}</td>
+                <td>${payload}</td>
+                <td class="status-cell">Sending...</td>
+                <td class="size-cell">-</td>
+                <td class="time-cell">-</td>
+            `;
+            bulkResultsTable.appendChild(row);
+            row.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+            // Add click listener to view details
+            row.addEventListener('click', () => {
+                // Highlight row
+                bulkResultsTable.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+                row.classList.add('selected');
+
+                const result = bulkResults[i];
+                if (result) {
+                    // Load into main editors
+                    rawRequestInput.innerText = result.requestContent;
+
+                    // Update Response View
+                    resStatus.textContent = result.statusText ? `${result.status} ${result.statusText}` : result.status;
+                    resStatus.className = 'status-badge';
+                    if (result.status >= 200 && result.status < 300) resStatus.classList.add('status-2xx');
+                    else if (result.status >= 400 && result.status < 500) resStatus.classList.add('status-4xx');
+                    else if (result.status >= 500) resStatus.classList.add('status-5xx');
+
+                    resTime.textContent = result.duration;
+                    resSize.textContent = formatBytes(result.size);
+
+                    // Format Response
+                    if (result.error) {
+                        rawResponseDisplay.textContent = result.error;
+                    } else {
+                        let rawResponse = `HTTP/1.1 ${result.status} ${result.statusText}\n`;
+                        if (result.headers) {
+                            result.headers.forEach((val, key) => {
+                                rawResponse += `${key}: ${val}\n`;
+                            });
+                        }
+                        rawResponse += '\n';
+
+                        try {
+                            const json = JSON.parse(result.responseBody);
+                            rawResponse += JSON.stringify(json, null, 2);
+                        } catch (e) {
+                            rawResponse += result.responseBody;
+                        }
+
+                        rawResponseDisplay.innerHTML = highlightHTTP(rawResponse);
+                    }
+                }
+            });
+
+            const startTime = performance.now();
+
+            try {
+                // Robust parsing logic (copied from sendRequest)
+                const lines = requestContent.split('\n');
+                if (lines.length === 0) throw new Error('No content');
+
+                const requestLine = lines[0].trim();
+                const reqLineParts = requestLine.split(' ');
+                if (reqLineParts.length < 2) throw new Error('Invalid Request Line');
+
+                const method = reqLineParts[0].toUpperCase();
+                const path = reqLineParts[1];
+
+                let headers = {};
+                let bodyLines = [];
+                let isBody = false;
+                let host = '';
+
+                for (let j = 1; j < lines.length; j++) {
+                    const line = lines[j];
+                    if (!isBody) {
+                        if (line.trim() === '') {
+                            isBody = true;
+                            continue;
+                        }
+                        // Skip pseudo-headers
+                        if (line.trim().startsWith(':')) continue;
+
+                        const colonIndex = line.indexOf(':');
+                        if (colonIndex > 0) {
+                            const key = line.substring(0, colonIndex).trim();
+                            const value = line.substring(colonIndex + 1).trim();
+                            if (key && value) {
+                                if (key.toLowerCase() === 'host') host = value;
+                                else headers[key] = value;
+                            }
+                        }
+                    } else {
+                        bodyLines.push(line);
+                    }
+                }
+
+                if (!host) throw new Error('Host header missing');
+
+                // Construct URL
+                let url = path;
+                if (!path.startsWith('http')) {
+                    url = `${scheme}://${host}${path}`;
+                }
+
+                const body = bodyLines.join('\n');
+
+                const options = {
+                    method: method,
+                    headers: headers
+                };
+
+                if (method !== 'GET' && method !== 'HEAD') {
+                    options.body = body;
+                }
+
+                const response = await fetch(url, options);
+                const endTime = performance.now();
+                const responseBody = await response.text();
+                const responseSize = new TextEncoder().encode(responseBody).length;
+                const duration = `${(endTime - startTime).toFixed(0)}ms`;
+
+                // Store Result (Success)
+                bulkResults[i] = {
+                    requestContent: requestContent,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: response.headers,
+                    responseBody: responseBody,
+                    size: responseSize,
+                    duration: duration,
+                    error: null
+                };
+
+                // Update Row
+                row.querySelector('.status-cell').textContent = `${response.status} ${response.statusText}`;
+                row.querySelector('.size-cell').textContent = formatBytes(responseSize);
+                row.querySelector('.time-cell').textContent = duration;
+
+            } catch (error) {
+                const endTime = performance.now();
+                console.error(error);
+
+                // Store Result (Error)
+                bulkResults[i] = {
+                    requestContent: requestContent,
+                    status: 'Error',
+                    statusText: '',
+                    headers: null,
+                    responseBody: '',
+                    size: 0,
+                    duration: `${(endTime - startTime).toFixed(0)}ms`,
+                    error: error.message
+                };
+
+                row.querySelector('.status-cell').textContent = 'Error';
+                row.querySelector('.status-cell').title = error.message;
+            }
+
+            completed++;
+            const progress = (completed / total) * 100;
+            bulkProgressBar.style.setProperty('--progress', `${progress}%`);
+            bulkProgressText.textContent = `${completed}/${total}`;
+        }
+    }
+});

@@ -19,6 +19,7 @@ rep+ is a lightweight Chrome DevTools extension inspired by Burp Suite's Repeate
 - **Starring**: Pin important requests to keep them at the top of your list.
 - **Clear Workspace**: Instantly clear all captured requests with a single click to start a fresh session.
 - **Export & Import**: Export requests as JSON to share findings with teammates or import them later. Perfect for rep+ ↔ rep+ workflows.
+- **Bulk Replay**: Intruder-style attacks! Mark multiple parameters with `§`, configure separate payloads (List or Numbers) for each position, and inspect detailed results for every attempt.
 
 ## Installation
 

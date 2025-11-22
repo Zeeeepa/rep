@@ -279,8 +279,20 @@ body {
 .main-content {
     flex: 1;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    /* Vertical split */
     position: relative;
+    min-width: 0;
+}
+
+.split-view-container {
+    flex: 1;
+    display: flex;
+    flex-direction: row;
+    /* Horizontal split for Request/Response */
+    min-height: 100px;
+    /* Minimum height for top section */
+    overflow: hidden;
 }
 
 .pane {
@@ -298,7 +310,221 @@ body {
 .response-pane {
     flex: 1;
     min-width: 200px;
-    display: flex !important;
+}
+
+.bulk-replay-pane {
+    height: 200px;
+    /* Initial height */
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-color);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+/* Vertical Resize Handle */
+.vertical-resize-handle {
+    height: 6px;
+    width: 100%;
+    cursor: row-resize;
+    background: var(--sidebar-bg);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border-color);
+    position: relative;
+    z-index: 10;
+}
+
+.vertical-resize-handle::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 40px;
+    height: 2px;
+    background: #5f6368;
+    border-radius: 1px;
+}
+
+.vertical-resize-handle:hover {
+    background: var(--border-color);
+}
+
+.vertical-resize-handle:hover::after {
+    background: var(--accent-color);
+}
+
+/* Compact Header for Bulk Replay */
+.bulk-replay-pane .pane-header {
+    padding: 6px 12px;
+    min-height: 32px;
+    background: var(--sidebar-bg);
+}
+
+.bulk-replay-pane .pane-header h3 {
+    font-size: 12px;
+}
+
+.bulk-replay-pane .icon-btn {
+    padding: 2px;
+    font-size: 14px;
+}
+
+/* Modal Styles */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: var(--sidebar-bg);
+    margin: 10% auto;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    width: 500px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.close-modal {
+    background: none;
+    border: none;
+    color: #9aa0a6;
+    font-size: 20px;
+    cursor: pointer;
+}
+
+.modal-body {
+    padding: 15px;
+}
+
+.modal-footer {
+    padding: 15px;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px;
+    color: #9aa0a6;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.help-text {
+    font-size: 11px;
+    color: #5f6368;
+    margin: 4px 0 0;
+}
+
+/* Table Styles */
+.table-container {
+    flex: 1;
+    overflow: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+th {
+    background: var(--sidebar-bg);
+    position: sticky;
+    top: 0;
+}
+
+tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+tr.selected {
+    background: rgba(138, 180, 248, 0.15);
+    border-left: 3px solid var(--accent-color);
+}
+
+/* Progress Bar */
+.progress-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 200px;
+    margin-right: 10px;
+}
+
+.progress-bar {
+    flex: 1;
+    height: 4px;
+    background: var(--border-color);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: var(--progress, 0%);
+    background: var(--accent-color);
+    transition: width 0.2s;
+}
+
+#bulk-progress-text {
+    font-size: 11px;
+    color: #9aa0a6;
+    min-width: 40px;
 }
 
 .resize-handle {
@@ -374,6 +600,44 @@ body {
 .icon-btn:disabled {
     opacity: 0.3;
     cursor: default;
+}
+
+/* Attack Button */
+#bulk-replay-btn {
+    transition: all 0.3s ease;
+    color: #9aa0a6;
+}
+
+#bulk-replay-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+#bulk-replay-btn.ready {
+    color: #ea4335;
+    /* Red color for attack */
+    background: rgba(234, 67, 53, 0.1);
+    border: 1px solid rgba(234, 67, 53, 0.3);
+    animation: pulse-red 2s infinite;
+}
+
+#bulk-replay-btn.ready:hover {
+    background: rgba(234, 67, 53, 0.2);
+    transform: scale(1.05);
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0.4);
+    }
+
+    70% {
+        box-shadow: 0 0 0 6px rgba(234, 67, 53, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(234, 67, 53, 0);
+    }
 }
 
 /* HTTPS Toggle */
