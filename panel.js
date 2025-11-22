@@ -2012,6 +2012,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const rawRequestInput = document.getElementById('raw-request-input');
 
     let shouldStopBulk = false;
+    let shouldPauseBulk = false;
 
     // Helper to check for payload markers
     function checkPayloadMarkers() {
@@ -2180,10 +2181,30 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Stop Attack
+    // Pause/Resume Attack (using stop button)
     if (bulkStopBtn) {
         bulkStopBtn.addEventListener('click', () => {
-            shouldStopBulk = true;
+            if (bulkStopBtn.dataset.state === 'paused') {
+                // Resume
+                shouldPauseBulk = false;
+                bulkStopBtn.dataset.state = 'running';
+                bulkStopBtn.title = 'Pause Attack';
+                bulkStopBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" />
+                    </svg>
+                `;
+            } else {
+                // Pause
+                shouldPauseBulk = true;
+                bulkStopBtn.dataset.state = 'paused';
+                bulkStopBtn.title = 'Resume Attack';
+                bulkStopBtn.innerHTML = `
+                    <svg viewBox="0 0 24 24" width="16" height="16">
+                        <path d="M8 5v14l11-7z" fill="currentColor" />
+                    </svg>
+                `;
+            }
         });
     }
 
@@ -2275,6 +2296,18 @@ document.addEventListener('DOMContentLoaded', () => {
         verticalResizeHandle.style.display = 'block';
         bulkResultsTable.innerHTML = '';
         shouldStopBulk = false;
+        shouldPauseBulk = false;
+
+        // Reset stop button to running state (pause icon)
+        if (bulkStopBtn) {
+            bulkStopBtn.dataset.state = 'running';
+            bulkStopBtn.title = 'Pause Attack';
+            bulkStopBtn.innerHTML = `
+                <svg viewBox="0 0 24 24" width="16" height="16">
+                    <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" fill="currentColor" />
+                </svg>
+            `;
+        }
 
         // Store results for viewing
         const bulkResults = [];
@@ -2289,6 +2322,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const total = payloads.length;
 
         for (let i = 0; i < total; i++) {
+            if (shouldStopBulk) break;
+
+            // Wait while paused
+            while (shouldPauseBulk) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                if (shouldStopBulk) break;
+            }
+
             if (shouldStopBulk) break;
 
             const payload = payloads[i];
