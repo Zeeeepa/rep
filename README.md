@@ -48,6 +48,11 @@ rep+ is a lightweight Chrome DevTools extension inspired by Burp Suite's Repeate
   
   Mark multiple parameters with `§`, choose your attack type, configure payloads (List or Numbers) for each position, and inspect detailed results for every attempt. Includes pause/resume functionality for long-running attacks.
   - **Response Diff**: Git-style diff view to highlight changes between the baseline response and each attack result. Toggle "Diff View" to see additions (green) and deletions (red) at a glance.
+- **Secret Scanner**: Automatically scans captured JavaScript files for hardcoded secrets (API keys, tokens, private keys).
+  - **Smart Detection**: Uses entropy analysis and advanced filtering to minimize false positives.
+  - **Confidence Scores**: Flags findings as High, Medium, or Low confidence.
+  - **Search & Filter**: Quickly find specific secrets by type or filename.
+- **Theme Support**: Auto-detects system theme (Light/Dark) and includes a quick toggle button ☀️/🌙 in the UI.
 - **AI Capabilities**: Integrated with Anthropic's Claude to help you understand requests and responses.
   - **Explain Request**: Click the ✨ button to get a detailed explanation of the current request.
   - **Suggest Attack Vectors**: Click the ▼ menu and select **Suggest Attack Vectors** to get a prioritized security checklist of potential vulnerabilities (IDOR, SQLi, etc.) tailored to the current request.

@@ -8,7 +8,8 @@ import {
 import { setupNetworkListener, parseRequest, executeRequest } from './modules/network.js';
 import { getAISettings, saveAISettings, streamExplanationFromClaude } from './modules/ai.js';
 import { setupBulkReplay } from './modules/bulk-replay.js';
-import { formatBytes, highlightHTTP, renderDiff, copyToClipboard } from './modules/utils.js';
+import { scanForSecrets } from './modules/secret-scanner.js';
+import { formatBytes, highlightHTTP, renderDiff, copyToClipboard, escapeHtml } from './modules/utils.js';
 
 // Theme Detection
 function updateTheme() {
@@ -174,6 +175,72 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.rawResponseDisplay.innerHTML = highlightHTTP(state.currentResponse);
                 }
             }
+        });
+    }
+
+    // Secret Scanner
+    const scanSecretsBtn = document.getElementById('scan-secrets-btn');
+    const secretsModal = document.getElementById('secrets-modal');
+    const secretsResults = document.getElementById('secrets-results');
+    const secretsProgress = document.getElementById('secrets-progress');
+    const secretsProgressBar = document.getElementById('secrets-progress-bar');
+    const secretsProgressText = document.getElementById('secrets-progress-text');
+    const secretsSearch = document.getElementById('secrets-search');
+    const secretsSearchContainer = document.getElementById('secrets-search-container');
+
+    let currentSecretResults = [];
+
+    function renderSecretResults(results) {
+        if (results.length === 0) {
+            secretsResults.innerHTML = '<div class="empty-state">No secrets found matching your criteria.</div>';
+            return;
+        }
+
+        let html = '<table class="secrets-table"><thead><tr><th>Type</th><th>Match</th><th>Confidence</th><th>File</th></tr></thead><tbody>';
+        results.forEach(r => {
+            const confidenceClass = r.confidence >= 80 ? 'high' : (r.confidence >= 50 ? 'medium' : 'low');
+            html += `<tr>
+                <td>${escapeHtml(r.type)}</td>
+                <td class="secret-match" title="${escapeHtml(r.match)}">${escapeHtml(r.match.substring(0, 50))}${r.match.length > 50 ? '...' : ''}</td>
+                <td><span class="confidence-badge ${confidenceClass}">${r.confidence}%</span></td>
+                <td class="secret-file"><a href="${escapeHtml(r.file)}" target="_blank" title="${escapeHtml(r.file)}">${escapeHtml(r.file)}</a></td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        secretsResults.innerHTML = html;
+    }
+
+    if (scanSecretsBtn) {
+        scanSecretsBtn.addEventListener('click', async () => {
+            secretsModal.style.display = 'block';
+            secretsResults.innerHTML = '';
+            secretsProgress.style.display = 'block';
+            secretsProgressBar.style.setProperty('--progress', '0%');
+            secretsProgressText.textContent = 'Scanning JS files...';
+            if (secretsSearch) secretsSearch.value = ''; // Reset search
+            if (secretsSearchContainer) secretsSearchContainer.style.display = 'none';
+
+            currentSecretResults = await scanForSecrets(state.requests, (processed, total) => {
+                const percent = Math.round((processed / total) * 100);
+                secretsProgressBar.style.setProperty('--progress', `${percent}%`);
+                secretsProgressText.textContent = `Scanning JS files... ${processed}/${total}`;
+            });
+
+            secretsProgress.style.display = 'none';
+            if (secretsSearchContainer) secretsSearchContainer.style.display = 'block';
+            renderSecretResults(currentSecretResults);
+        });
+    }
+
+    if (secretsSearch) {
+        secretsSearch.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const filtered = currentSecretResults.filter(r =>
+                r.type.toLowerCase().includes(term) ||
+                r.match.toLowerCase().includes(term) ||
+                r.file.toLowerCase().includes(term)
+            );
+            renderSecretResults(filtered);
         });
     }
 
