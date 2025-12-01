@@ -138,12 +138,31 @@
                                         fill="currentColor" />
                                 </svg>
                             </button>
+                            <button id="layout-toggle-btn" class="icon-btn" title="Toggle Layout (Horizontal/Vertical)">
+                                <svg viewBox="0 0 24 24" width="16" height="16">
+                                    <path d="M3 5v14h18V5H3zm16 12h-6V7h6v10zm-8 0H5V7h6v10z" fill="currentColor" />
+                                </svg>
+                            </button>
                             <button id="send-btn" class="primary-btn">Send</button>
                         </div>
                     </div>
+                    <div class="pane-tabs">
+                        <button class="view-tab active" data-view="pretty" data-pane="request">Pretty</button>
+                        <button class="view-tab" data-view="raw" data-pane="request">Raw</button>
+                        <button class="view-tab" data-view="hex" data-pane="request">Hex</button>
+                    </div>
                     <div class="pane-body">
                         <div class="editor-container">
-                            <div id="raw-request-input" contenteditable="true" class="editor" spellcheck="false">
+                            <div id="req-view-pretty" class="view-content active">
+                                <div id="raw-request-input" contenteditable="true" class="editor" spellcheck="false">
+                                </div>
+                            </div>
+                            <div id="req-view-raw" class="view-content" style="display: none;">
+                                <textarea id="raw-request-textarea" class="editor raw-editor"
+                                    spellcheck="false"></textarea>
+                            </div>
+                            <div id="req-view-hex" class="view-content" style="display: none;">
+                                <pre id="req-hex-display" class="hex-display"></pre>
                             </div>
                         </div>
                         <div class="search-bar-container">
@@ -214,9 +233,22 @@
                             </button>
                         </div>
                     </div>
+                    <div class="pane-tabs">
+                        <button class="view-tab active" data-view="pretty" data-pane="response">Pretty</button>
+                        <button class="view-tab" data-view="raw" data-pane="response">Raw</button>
+                        <button class="view-tab" data-view="hex" data-pane="response">Hex</button>
+                    </div>
                     <div class="pane-body">
                         <div class="editor-container">
-                            <pre id="raw-response-display"></pre>
+                            <div id="res-view-pretty" class="view-content active">
+                                <pre id="raw-response-display"></pre>
+                            </div>
+                            <div id="res-view-raw" class="view-content" style="display: none;">
+                                <pre id="raw-response-text" class="editor raw-editor"></pre>
+                            </div>
+                            <div id="res-view-hex" class="view-content" style="display: none;">
+                                <pre id="res-hex-display" class="hex-display"></pre>
+                            </div>
                         </div>
                         <div class="search-bar-container">
                             <input type="text" id="response-search" class="search-input"
