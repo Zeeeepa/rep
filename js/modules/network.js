@@ -114,7 +114,7 @@ export function parseRequest(rawContent, useHttps) {
     const forbiddenHeaders = [
         'accept-charset', 'accept-encoding', 'access-control-request-headers',
         'access-control-request-method', 'connection', 'content-length',
-        'cookie', 'cookie2', 'date', 'dnt', 'expect', 'host', 'keep-alive',
+        'date', 'dnt', 'expect', 'host', 'keep-alive',
         'origin', 'referer', 'te', 'trailer', 'transfer-encoding', 'upgrade', 'via'
     ];
 
@@ -136,7 +136,7 @@ export function parseRequest(rawContent, useHttps) {
         method: method,
         headers: filteredHeaders,
         mode: 'cors',
-        credentials: 'omit'
+        credentials: 'include'
     };
 
     if (['POST', 'PUT', 'PATCH'].includes(method.toUpperCase()) && bodyText) {
