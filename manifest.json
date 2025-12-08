@@ -5,7 +5,6 @@
     "description": "rep+ - Capture, modify, and replay HTTP requests in Chrome DevTools with AI-powered security analysis.",
     "permissions": [
         "activeTab",
-        "scripting",
         "storage"
     ],
     "optional_permissions": [
