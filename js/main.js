@@ -151,25 +151,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // History Navigation
-    if (elements.historyBackBtn) {
-        elements.historyBackBtn.addEventListener('click', () => {
-            if (state.historyIndex > 0) {
-                state.historyIndex--;
-                const item = state.requestHistory[state.historyIndex];
-                elements.rawRequestInput.innerText = item.rawText;
-                elements.useHttpsCheckbox.checked = item.useHttps;
+    // Undo/Redo buttons
+    if (elements.undoBtn) {
+        elements.undoBtn.addEventListener('click', () => {
+            if (state.undoStack.length <= 1) return;
+
+            const currentContent = elements.rawRequestInput.innerText || elements.rawRequestInput.textContent;
+            state.redoStack.push(currentContent);
+
+            state.undoStack.pop();
+            const previousContent = state.undoStack[state.undoStack.length - 1];
+
+            if (previousContent !== undefined) {
+                elements.rawRequestInput.textContent = previousContent;
+                elements.rawRequestInput.innerHTML = highlightHTTP(previousContent);
+                // Update undo/redo button states
                 events.emit(EVENT_NAMES.UI_UPDATE_HISTORY_BUTTONS);
             }
         });
     }
 
-    if (elements.historyFwdBtn) {
-        elements.historyFwdBtn.addEventListener('click', () => {
-            if (state.historyIndex < state.requestHistory.length - 1) {
-                state.historyIndex++;
-                const item = state.requestHistory[state.historyIndex];
-                elements.rawRequestInput.innerText = item.rawText;
-                elements.useHttpsCheckbox.checked = item.useHttps;
+    if (elements.redoBtn) {
+        elements.redoBtn.addEventListener('click', () => {
+            if (state.redoStack.length === 0) return;
+
+            const nextContent = state.redoStack.pop();
+            if (nextContent !== undefined) {
+                state.undoStack.push(nextContent);
+                elements.rawRequestInput.textContent = nextContent;
+                elements.rawRequestInput.innerHTML = highlightHTTP(nextContent);
+                // Update undo/redo button states
                 events.emit(EVENT_NAMES.UI_UPDATE_HISTORY_BUTTONS);
             }
         });

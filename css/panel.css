@@ -4703,7 +4703,100 @@ pre {
 }
 
 /* LLM Chat Context Change Notification */
-.llm-chat-context-notification {
+/* Reference Previous Requests UI */
+.llm-chat-reference-container {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--sidebar-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.llm-chat-reference-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    color: var(--text-color);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+}
+
+.llm-chat-reference-header:hover {
+    opacity: 0.8;
+}
+
+.llm-chat-reference-toggle {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: var(--text-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.7;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    width: 16px;
+    height: 16px;
+}
+
+.llm-chat-reference-toggle:hover {
+    opacity: 1;
+}
+
+.llm-chat-reference-toggle svg {
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+}
+
+.llm-chat-reference-container.collapsed .llm-chat-reference-toggle svg {
+    transform: rotate(-90deg);
+}
+
+.llm-chat-reference-checkboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    max-height: 150px;
+    overflow-y: auto;
+    margin-top: var(--spacing-xs);
+    transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.llm-chat-reference-container.collapsed .llm-chat-reference-checkboxes {
+    display: none;
+}
+
+.llm-chat-reference-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+}
+
+.llm-chat-reference-item:hover {
+    background: var(--hover-bg);
+}
+
+.llm-chat-reference-item input[type="checkbox"] {
+    cursor: pointer;
+    margin: 0;
+}
+
+.llm-chat-reference-item span {
+    color: var(--text-color);
+    font-size: 11px;
+    flex: 1;
+}
+
+.llm-chat-context-notification,
+.llm-chat-fresh-notice {
     display: flex;
     align-items: center;
     justify-content: space-between;

@@ -6,13 +6,14 @@ import { events, EVENT_NAMES } from '../core/events.js';
 import { elements } from './main-ui.js'; // Keep for context menu and undo/redo which need direct element access
 
 export function updateHistoryButtons() {
-    const historyBackBtn = document.getElementById('history-back');
-    const historyFwdBtn = document.getElementById('history-fwd');
-    if (historyBackBtn) {
-        historyBackBtn.disabled = state.historyIndex <= 0;
+    // Update undo/redo buttons (renamed from history buttons)
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
+    if (undoBtn) {
+        undoBtn.disabled = state.undoStack.length <= 1;
     }
-    if (historyFwdBtn) {
-        historyFwdBtn.disabled = state.historyIndex >= state.requestHistory.length - 1;
+    if (redoBtn) {
+        redoBtn.disabled = state.redoStack.length === 0;
     }
 }
 
@@ -232,10 +233,25 @@ export function setupUndoRedo() {
         }, 500);
     });
 
-    // Update syntax highlighting on blur
+    // Update syntax highlighting on blur and save editor state
     elements.rawRequestInput.addEventListener('blur', () => {
         const content = elements.rawRequestInput.innerText;
         elements.rawRequestInput.innerHTML = highlightHTTP(content);
+        
+        // Auto-save editor state when user leaves the editor (switching requests, etc.)
+        if (state.selectedRequest) {
+            const requestIndex = state.requests.indexOf(state.selectedRequest);
+            if (requestIndex !== -1) {
+                // Import saveEditorState dynamically to avoid circular dependency
+                import('../ui/request-editor.js').then(module => {
+                    if (module.saveEditorState) {
+                        module.saveEditorState(requestIndex);
+                    }
+                }).catch(() => {
+                    // Silently fail if import fails
+                });
+            }
+        }
     });
 
     elements.rawRequestInput.addEventListener('keydown', (e) => {
@@ -288,6 +304,8 @@ function undo() {
     if (previousContent !== undefined) {
         elements.rawRequestInput.textContent = previousContent;
         elements.rawRequestInput.innerHTML = highlightHTTP(previousContent);
+        // Emit event to update button states
+        events.emit('ui:undo-redo-changed');
     }
 }
 
@@ -299,6 +317,8 @@ function redo() {
         state.undoStack.push(nextContent);
         elements.rawRequestInput.textContent = nextContent;
         elements.rawRequestInput.innerHTML = highlightHTTP(nextContent);
+        // Emit event to update button states
+        events.emit('ui:undo-redo-changed');
     }
 }
 

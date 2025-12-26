@@ -13,6 +13,10 @@ let responseHistory = []; // Track all responses for the current request (in chr
 let lastTrackedResponse = null; // Track the last response we've seen to detect new ones
 let chatTokenEstimateElement = null; // Reference to token estimate element
 
+// Per-request chat history storage
+let chatHistoryByRequest = new Map(); // Map<requestIndex, chatHistory[]>
+let referencedRequests = new Set(); // Set of request indices to include in context
+
 // Token optimization constants
 const MAX_RESPONSE_HISTORY = 2; // Only keep last 2 responses (original + 1 resend)
 const MAX_RESPONSE_TOKENS = 1500; // ~6KB of text (roughly 1500 tokens)
@@ -93,10 +97,52 @@ function formatResponseForContext(request) {
     }
 }
 
+/**
+ * Summarize previous chat history for context
+ * @param {Array} prevChat - Previous chat history array
+ * @returns {string} Summary of the previous investigation
+ */
+function summarizePreviousChat(prevChat) {
+    if (!prevChat || prevChat.length === 0) return 'No previous conversation.';
+    
+    // Extract key findings from assistant messages
+    const assistantMessages = prevChat.filter(msg => msg.role === 'assistant');
+    if (assistantMessages.length === 0) return 'Previous conversation had no assistant responses.';
+    
+    // Get the last assistant message as summary (most relevant)
+    const lastAssistant = assistantMessages[assistantMessages.length - 1];
+    const summary = lastAssistant.content.substring(0, 200); // First 200 chars
+    
+    return summary + (lastAssistant.content.length > 200 ? '...' : '');
+}
+
 function buildUserPrompt(userMessage, request) {
     let prompt = userMessage;
     
     if (request && request.request) {
+        // Add referenced previous requests if any
+        if (referencedRequests.size > 0) {
+            prompt += '\n\n--- Related Requests (from previous investigation) ---\n';
+            const currentIndex = state.requests.indexOf(request);
+            
+            for (const reqIndex of referencedRequests) {
+                if (reqIndex === currentIndex) continue; // Skip current request
+                if (reqIndex < 0 || reqIndex >= state.requests.length) continue;
+                
+                const prevReq = state.requests[reqIndex];
+                const prevChat = chatHistoryByRequest.get(reqIndex);
+                
+                if (prevReq && prevReq.request) {
+                    const method = prevReq.request.method || 'GET';
+                    const url = new URL(prevReq.request.url);
+                    const path = url.pathname;
+                    
+                    prompt += `\nRequest #${reqIndex + 1}: ${method} ${path}\n`;
+                    prompt += `Previous findings: ${summarizePreviousChat(prevChat || [])}\n`;
+                }
+            }
+        }
+        
         // Get the current request from the editor (may be modified)
         const currentRequestFromEditor = elements.rawRequestInput ? 
             (elements.rawRequestInput.innerText || elements.rawRequestInput.textContent || '').trim() : '';
@@ -283,10 +329,39 @@ function addMessageToHistory(role, content) {
     if (chatHistory.length > MAX_CHAT_HISTORY) {
         chatHistory = chatHistory.slice(-MAX_CHAT_HISTORY);
     }
+    
+    // Also save to per-request history
+    if (state.selectedRequest) {
+        const requestIndex = state.requests.indexOf(state.selectedRequest);
+        if (requestIndex !== -1) {
+            if (!chatHistoryByRequest.has(requestIndex)) {
+                chatHistoryByRequest.set(requestIndex, []);
+            }
+            const requestHistory = chatHistoryByRequest.get(requestIndex);
+            requestHistory.push({ role, content, timestamp: Date.now() });
+            
+            // Limit per-request history too
+            if (requestHistory.length > MAX_CHAT_HISTORY) {
+                requestHistory.splice(0, requestHistory.length - MAX_CHAT_HISTORY);
+            }
+        }
+    }
 }
 
 function clearChatHistory() {
     chatHistory = [];
+    // Don't clear per-request history, just current session
+}
+
+function loadChatHistoryForRequest(requestIndex) {
+    if (requestIndex === -1 || !chatHistoryByRequest.has(requestIndex)) {
+        chatHistory = [];
+        return;
+    }
+    
+    // Load the stored history for this request
+    const storedHistory = chatHistoryByRequest.get(requestIndex);
+    chatHistory = storedHistory.map(msg => ({ ...msg })); // Deep copy
 }
 
 /**
@@ -870,7 +945,15 @@ export function setupLLMChat(elements) {
     // Clear chat
     if (chatClearBtn) {
         chatClearBtn.addEventListener('click', () => {
+            // Save current chat history before clearing
+            if (state.selectedRequest && lastSelectedRequestIndex !== -1) {
+                chatHistoryByRequest.set(lastSelectedRequestIndex, [...chatHistory]);
+            }
+            
             clearChatHistory();
+            referencedRequests.clear();
+            updateReferenceUI();
+            
             if (chatMessages) {
                 chatMessages.innerHTML = '';
             }
@@ -903,6 +986,121 @@ export function setupLLMChat(elements) {
     }
     
     // Function to show a subtle context change notification
+    function showFreshChatNotice() {
+        if (!chatMessages) return;
+        
+        // Create a subtle notice that chat is fresh for this request
+        const notice = document.createElement('div');
+        notice.className = 'llm-chat-fresh-notice';
+        notice.innerHTML = `
+            <span>💬 Starting fresh chat for this request</span>
+            <button class="llm-chat-notification-dismiss" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        // Insert at the top of messages
+        chatMessages.insertBefore(notice, chatMessages.firstChild);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            if (notice.parentElement) {
+                notice.remove();
+            }
+        }, 5000);
+    }
+    
+    function updateReferenceUI() {
+        const referenceContainer = document.getElementById('llm-chat-reference-container');
+        if (!referenceContainer) return;
+        
+        const currentIndex = state.requests.indexOf(state.selectedRequest);
+        if (currentIndex === -1) {
+            referenceContainer.style.display = 'none';
+            return;
+        }
+        
+        // Get all requests that have chat history (excluding current)
+        const availableRequests = [];
+        for (let i = 0; i < state.requests.length; i++) {
+            if (i !== currentIndex && chatHistoryByRequest.has(i)) {
+                const req = state.requests[i];
+                const history = chatHistoryByRequest.get(i);
+                if (req && req.request && history && history.length > 0) {
+                    const method = req.request.method || 'GET';
+                    const url = new URL(req.request.url);
+                    const path = url.pathname.length > 40 ? url.pathname.substring(0, 37) + '...' : url.pathname;
+                    availableRequests.push({
+                        index: i,
+                        method,
+                        path,
+                        messageCount: history.length
+                    });
+                }
+            }
+        }
+        
+        if (availableRequests.length === 0) {
+            referenceContainer.style.display = 'none';
+            return;
+        }
+        
+        // Show the reference UI
+        referenceContainer.style.display = 'block';
+        const checkboxContainer = referenceContainer.querySelector('.llm-chat-reference-checkboxes');
+        if (!checkboxContainer) return;
+        
+        // Clear existing checkboxes
+        checkboxContainer.innerHTML = '';
+        
+        // Add checkboxes for each available request
+        availableRequests.forEach(req => {
+            const label = document.createElement('label');
+            label.className = 'llm-chat-reference-item';
+            label.innerHTML = `
+                <input type="checkbox" value="${req.index}" ${referencedRequests.has(req.index) ? 'checked' : ''}>
+                <span>#${req.index + 1} ${req.method} ${req.path} (${req.messageCount} msgs)</span>
+            `;
+            checkboxContainer.appendChild(label);
+        });
+        
+        // Update checkboxes event listeners
+        checkboxContainer.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const reqIndex = parseInt(e.target.value, 10);
+                if (e.target.checked) {
+                    referencedRequests.add(reqIndex);
+                } else {
+                    referencedRequests.delete(reqIndex);
+                }
+            });
+        });
+        
+        // Set up collapse/expand toggle
+        const toggleBtn = document.getElementById('llm-chat-reference-toggle');
+        if (toggleBtn) {
+            // Remove existing listeners to avoid duplicates
+            const newToggleBtn = toggleBtn.cloneNode(true);
+            toggleBtn.parentNode.replaceChild(newToggleBtn, toggleBtn);
+            
+            // Default to collapsed if there are more than 2 requests
+            const shouldCollapse = availableRequests.length > 2;
+            if (shouldCollapse) {
+                checkboxContainer.style.display = 'none';
+                referenceContainer.classList.add('collapsed');
+                newToggleBtn.querySelector('svg').style.transform = 'rotate(-90deg)';
+            }
+            
+            newToggleBtn.addEventListener('click', () => {
+                const isCollapsed = checkboxContainer.style.display === 'none';
+                checkboxContainer.style.display = isCollapsed ? 'block' : 'none';
+                referenceContainer.classList.toggle('collapsed', !isCollapsed);
+                const svg = newToggleBtn.querySelector('svg');
+                if (svg) {
+                    svg.style.transform = isCollapsed ? 'rotate(0deg)' : 'rotate(-90deg)';
+                }
+            });
+        }
+    }
+    
     function showContextChangeNotification() {
         if (!chatMessages) return;
         
@@ -958,11 +1156,24 @@ export function setupLLMChat(elements) {
         // Check if request actually changed
         if (currentIndex !== -1 && currentIndex !== lastSelectedRequestIndex) {
             const wasChanged = lastSelectedRequestIndex !== -1; // Had a previous selection
+            
+            // Save current chat history before switching
+            if (wasChanged && lastSelectedRequestIndex !== -1) {
+                chatHistoryByRequest.set(lastSelectedRequestIndex, [...chatHistory]);
+            }
+            
             lastSelectedRequestIndex = currentIndex;
             
             // Clear response history when switching to a different request
             responseHistory = [];
             lastTrackedResponse = null;
+            
+            // Load chat history for the new request (or start fresh)
+            loadChatHistoryForRequest(currentIndex);
+            
+            // Clear referenced requests when switching
+            referencedRequests.clear();
+            updateReferenceUI();
             
             // Show subtle notification only if there's existing conversation
             if (wasChanged && chatMessages) {
@@ -970,6 +1181,8 @@ export function setupLLMChat(elements) {
                                      window.getComputedStyle(chatPane).display !== 'none';
                 if (isChatVisible) {
                     showContextChangeNotification();
+                    // Show fresh chat notice
+                    showFreshChatNotice();
                 }
             }
         } else if (currentIndex !== -1) {
@@ -980,6 +1193,9 @@ export function setupLLMChat(elements) {
     
     // Initial badge update
     updateRequestBadge();
+    
+    // Initial reference UI update
+    updateReferenceUI();
     
     function addUserMessage(text) {
         if (!chatMessages) return;
