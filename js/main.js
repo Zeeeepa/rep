@@ -119,6 +119,43 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.sendBtn.addEventListener('click', handleSendRequest);
     }
 
+    // Remove Duplicates Toggle
+    if (elements.removeDuplicatesBtn) {
+        // Load saved preference (default: true/enabled)
+        const removeDuplicatesEnabled = localStorage.getItem('rep_remove_duplicates') !== 'false';
+        updateRemoveDuplicatesButton(removeDuplicatesEnabled);
+        
+        elements.removeDuplicatesBtn.addEventListener('click', () => {
+            const currentState = localStorage.getItem('rep_remove_duplicates') !== 'false';
+            const newState = !currentState;
+            
+            localStorage.setItem('rep_remove_duplicates', newState.toString());
+            updateRemoveDuplicatesButton(newState);
+            
+            // If enabling, remove existing duplicates
+            if (newState) {
+                const removedCount = actions.request.removeDuplicates();
+                if (removedCount > 0) {
+                    console.log(`Removed ${removedCount} duplicate request${removedCount !== 1 ? 's' : ''}`);
+                } else {
+                    console.log('No duplicates found to remove');
+                }
+            }
+        });
+    }
+    
+    function updateRemoveDuplicatesButton(enabled) {
+        if (!elements.removeDuplicatesBtn) return;
+        
+        if (enabled) {
+            elements.removeDuplicatesBtn.classList.add('active');
+            elements.removeDuplicatesBtn.title = 'Remove duplicate requests (enabled)';
+        } else {
+            elements.removeDuplicatesBtn.classList.remove('active');
+            elements.removeDuplicatesBtn.title = 'Remove duplicate requests (disabled)';
+        }
+    }
+
     // Clear All
     if (elements.clearAllBtn) {
         elements.clearAllBtn.addEventListener('click', () => {
@@ -138,7 +175,24 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.toggleObjectsBtn.addEventListener('click', toggleAllObjects);
     }
 
-    // Export/Import
+    // More Menu Toggle
+    const moreMenuBtn = document.getElementById('more-menu-btn');
+    const moreMenu = document.getElementById('more-menu');
+    if (moreMenuBtn && moreMenu) {
+        moreMenuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            moreMenu.classList.toggle('hidden');
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!moreMenu.contains(e.target) && e.target !== moreMenuBtn) {
+                moreMenu.classList.add('hidden');
+            }
+        });
+    }
+
+    // Export/Import (now in more menu)
     if (elements.exportBtn) elements.exportBtn.addEventListener('click', exportRequests);
     if (elements.importBtn) elements.importBtn.addEventListener('click', () => elements.importFile.click());
     if (elements.importFile) {
@@ -146,6 +200,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.files.length > 0) {
                 importRequests(e.target.files[0]);
                 e.target.value = ''; // Reset
+            }
+        });
+    }
+    
+    // Close more menu after clicking an item
+    if (moreMenu) {
+        moreMenu.addEventListener('click', (e) => {
+            if (e.target.closest('.more-menu-item')) {
+                setTimeout(() => {
+                    moreMenu.classList.add('hidden');
+                }, 100);
             }
         });
     }
