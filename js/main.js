@@ -27,7 +27,7 @@ import { setupBlockControls } from './ui/block-controls.js';
 import { setupFilters } from './ui/filters.js';
 import { setupSidebar } from './ui/sidebar.js';
 import { setupViewTabs } from './ui/view-tabs.js';
-import { setupRawRequestEditor, initLayoutToggle } from './ui/request-editor.js';
+import { setupRawRequestEditor, initLayoutToggle, initPreviewControls } from './ui/request-editor.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize UI Elements
@@ -111,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupFilters();
     setupSidebar();
     setupViewTabs();
+    initPreviewControls();
     setupRawRequestEditor(elements.rawRequestInput, elements.sendBtn);
     initLayoutToggle(elements.layoutToggleBtn);
 
